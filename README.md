@@ -15,7 +15,7 @@ Get `lis3dh` component in your project `components` folder.
 git clone https://github.com/eavelardev/esp-comp-lis3dh.git lis3dh
 ```
 
-Get `i2c-bus` component dependency from [eavelardev/esp-comp-i2c-bus](https://github.com/eavelardev/esp-comp-i2c-bus)
+Get `i2c-bus` component dependency.
 ```
 git clone https://github.com/eavelardev/esp-comp-i2c-bus.git i2c-bus
 ```
@@ -23,7 +23,7 @@ git clone https://github.com/eavelardev/esp-comp-i2c-bus.git i2c-bus
 ## Usage
 
 Set the I2C config, you can look in these repos
-* [eavelardev/esp-comp-i2c-bus](https://github.com/eavelardev/esp-comp-lis3dh)
+* [eavelardev/esp-comp-i2c-bus](https://github.com/eavelardev/esp-comp-i2c-bus)
 * [eavelardev/esp-app-lis3dh](https://github.com/eavelardev/esp-app-lis3dh)
 
 ```c++
