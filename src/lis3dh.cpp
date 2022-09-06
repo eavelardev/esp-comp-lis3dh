@@ -1,5 +1,5 @@
 /*    
- * A library for Grove - 3-Axis Digital Accelerometer ±2g to 16g Ultra-low Power(LIS3DHTR)
+ * A library for Grove - 3-Axis Digital Accelerometer ±2g to 16g Ultra-low Power(LIS3DH)
  *   
  * Copyright (c) 2019 seeed technology co., ltd.  
  * Author      : Hongtai Liu (lht856@foxmail.com)  
@@ -27,103 +27,78 @@
  * THE SOFTWARE.
  */
 
-#include "LIS3DHTR.h"
-
-// Include FreeRTOS for delay
 #include <freertos/FreeRTOS.h>
-#include "driver/i2c.h"
+#include "lis3dh.h"
 
 #define DELAY(ms) vTaskDelay(ms / portTICK_RATE_MS);
 
-LIS3DHTR::LIS3DHTR()
+LIS3DH::LIS3DH()
 {
     
 }
 
-void LIS3DHTR::begin(uint8_t address)
+void LIS3DH::begin(i2c_bus_handle_t i2c_bus, uint8_t dev_addr)
 {
-    int i2c_master_port = I2C_MASTER_NUM;
+    i2c_dev = i2c_bus_device_create(i2c_bus, dev_addr, i2c_bus_get_current_clk_speed(i2c_bus));
 
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = I2C_MASTER_SDA_IO,
-        .scl_io_num = I2C_MASTER_SCL_IO,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master = {
-            .clk_speed = I2C_MASTER_FREQ_HZ
-        },
-        .clk_flags = I2C_SCLK_SRC_FLAG_FOR_NOMAL
-    };
-
-    i2c_param_config(i2c_master_port, &conf);
-
-    i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-
-    devAddr = address;
-
-    uint8_t config5 = LIS3DHTR_REG_TEMP_ADC_PD_ENABLED |
-                      LIS3DHTR_REG_TEMP_TEMP_EN_DISABLED;
-
-    writeRegister(LIS3DHTR_REG_TEMP_CFG, config5);
-    DELAY(LIS3DHTR_CONVERSIONDELAY);
+    closeTemp();
 
     if(isConnection() == false) {
         return;
     }
 
-    uint8_t config1 = LIS3DHTR_REG_ACCEL_CTRL_REG1_LPEN_NORMAL | // Normal Mode
-                      LIS3DHTR_REG_ACCEL_CTRL_REG1_AZEN_ENABLE | // Acceleration Z-Axis Enabled
-                      LIS3DHTR_REG_ACCEL_CTRL_REG1_AYEN_ENABLE | // Acceleration Y-Axis Enabled
-                      LIS3DHTR_REG_ACCEL_CTRL_REG1_AXEN_ENABLE;
+    uint8_t config1 = LIS3DH_REG_ACCEL_CTRL_REG1_LPEN_NORMAL | // Normal Mode
+                      LIS3DH_REG_ACCEL_CTRL_REG1_AZEN_ENABLE | // Acceleration Z-Axis Enabled
+                      LIS3DH_REG_ACCEL_CTRL_REG1_AYEN_ENABLE | // Acceleration Y-Axis Enabled
+                      LIS3DH_REG_ACCEL_CTRL_REG1_AXEN_ENABLE;
 
-    writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG1, config1);
-    DELAY(LIS3DHTR_CONVERSIONDELAY);
+    writeRegister(LIS3DH_REG_ACCEL_CTRL_REG1, config1);
+    DELAY(LIS3DH_CONVERSIONDELAY);
 
-    uint8_t config4 = LIS3DHTR_REG_ACCEL_CTRL_REG4_BDU_NOTUPDATED | // Continuous Update
-                      LIS3DHTR_REG_ACCEL_CTRL_REG4_BLE_LSB |        // Data LSB @ lower address
-                      LIS3DHTR_REG_ACCEL_CTRL_REG4_HS_DISABLE |     // High Resolution Disable
-                      LIS3DHTR_REG_ACCEL_CTRL_REG4_ST_NORMAL |      // Normal Mode
-                      LIS3DHTR_REG_ACCEL_CTRL_REG4_SIM_4WIRE;       // 4-Wire Interface
+    uint8_t config4 = LIS3DH_REG_ACCEL_CTRL_REG4_BDU_NOTUPDATED | // Continuous Update
+                      LIS3DH_REG_ACCEL_CTRL_REG4_BLE_LSB |        // Data LSB @ lower address
+                      LIS3DH_REG_ACCEL_CTRL_REG4_HS_DISABLE |     // High Resolution Disable
+                      LIS3DH_REG_ACCEL_CTRL_REG4_ST_NORMAL |      // Normal Mode
+                      LIS3DH_REG_ACCEL_CTRL_REG4_SIM_4WIRE;       // 4-Wire Interface
 
-    writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG4, config4);
-    DELAY(LIS3DHTR_CONVERSIONDELAY);
+    writeRegister(LIS3DH_REG_ACCEL_CTRL_REG4, config4);
+    DELAY(LIS3DH_CONVERSIONDELAY);
 
-    setFullScaleRange(LIS3DHTR_RANGE_16G);
-    setOutputDataRate(LIS3DHTR_DATARATE_400HZ);
+    setFullScaleRange(LIS3DH_RANGE_16G);
+    setOutputDataRate(LIS3DH_DATARATE_400HZ);
 }
 
 
-bool LIS3DHTR::available()
+bool LIS3DH::available()
 {
     uint8_t status = 0;
-    status = readRegister(LIS3DHTR_REG_ACCEL_STATUS2);
-    status &= LIS3DHTR_REG_ACCEL_STATUS2_UPDATE_MASK;
+    status = readRegister(LIS3DH_REG_ACCEL_STATUS2);
+    status &= LIS3DH_REG_ACCEL_STATUS2_UPDATE_MASK;
     return status;
 }
 
 
-void LIS3DHTR::openTemp()
+void LIS3DH::openTemp()
 {
-    uint8_t config5 = LIS3DHTR_REG_TEMP_ADC_PD_ENABLED |
-                      LIS3DHTR_REG_TEMP_TEMP_EN_ENABLED;
+    uint8_t config5 = LIS3DH_REG_TEMP_ADC_PD_ENABLED |
+                      LIS3DH_REG_TEMP_TEMP_EN_ENABLED;
 
-    writeRegister(LIS3DHTR_REG_TEMP_CFG, config5);
-    DELAY(LIS3DHTR_CONVERSIONDELAY);
+    writeRegister(LIS3DH_REG_TEMP_CFG, config5);
+    DELAY(LIS3DH_CONVERSIONDELAY);
 }
 
 
-void LIS3DHTR::closeTemp()
+void LIS3DH::closeTemp()
 {
-    uint8_t config5 = LIS3DHTR_REG_TEMP_ADC_PD_ENABLED |
-                      LIS3DHTR_REG_TEMP_TEMP_EN_DISABLED;
+    uint8_t config5 = LIS3DH_REG_TEMP_ADC_PD_ENABLED |
+                      LIS3DH_REG_TEMP_TEMP_EN_DISABLED;
 
-    writeRegister(LIS3DHTR_REG_TEMP_CFG, config5);
-    DELAY(LIS3DHTR_CONVERSIONDELAY);
+    writeRegister(LIS3DH_REG_TEMP_CFG, config5);
+    DELAY(LIS3DH_CONVERSIONDELAY);
 }
 
 
-int16_t LIS3DHTR::getTemperature(void)
+int16_t LIS3DH::getTemperature(void)
 {
     int16_t result = ((int16_t)readRegisterInt16(0x0c)) / 256;
     result += 25;
@@ -131,56 +106,56 @@ int16_t LIS3DHTR::getTemperature(void)
 }
 
 
-bool LIS3DHTR::isConnection(void)
+bool LIS3DH::isConnection(void)
 {
     return (getDeviceID() == 0x33);
 }
 
 
-uint8_t LIS3DHTR::getDeviceID(void)
+uint8_t LIS3DH::getDeviceID(void)
 {
-    return readRegister(LIS3DHTR_REG_ACCEL_WHO_AM_I);
+    return readRegister(LIS3DH_REG_ACCEL_WHO_AM_I);
 }
 
 
-void LIS3DHTR::setPowerMode(power_type_t mode)
+void LIS3DH::setPowerMode(power_type_t mode)
 {
     uint8_t data = 0;
 
-    data = readRegister(LIS3DHTR_REG_ACCEL_CTRL_REG1);
+    data = readRegister(LIS3DH_REG_ACCEL_CTRL_REG1);
 
-    data &= ~LIS3DHTR_REG_ACCEL_CTRL_REG1_LPEN_MASK;
+    data &= ~LIS3DH_REG_ACCEL_CTRL_REG1_LPEN_MASK;
     data |= mode;
 
-    writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG1, data);
-    DELAY(LIS3DHTR_CONVERSIONDELAY);
+    writeRegister(LIS3DH_REG_ACCEL_CTRL_REG1, data);
+    DELAY(LIS3DH_CONVERSIONDELAY);
 }
 
 
-void LIS3DHTR::setFullScaleRange(scale_type_t range)
+void LIS3DH::setFullScaleRange(scale_type_t range)
 {
     uint8_t data = 0;
 
-    data = readRegister(LIS3DHTR_REG_ACCEL_CTRL_REG4);
+    data = readRegister(LIS3DH_REG_ACCEL_CTRL_REG4);
 
-    data &= ~LIS3DHTR_REG_ACCEL_CTRL_REG4_FS_MASK;
+    data &= ~LIS3DH_REG_ACCEL_CTRL_REG4_FS_MASK;
     data |= range;
 
-    writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG4, data);
-    DELAY(LIS3DHTR_CONVERSIONDELAY);
+    writeRegister(LIS3DH_REG_ACCEL_CTRL_REG4, data);
+    DELAY(LIS3DH_CONVERSIONDELAY);
 
     switch (range)
     {
-    case LIS3DHTR_REG_ACCEL_CTRL_REG4_FS_16G:
+    case LIS3DH_REG_ACCEL_CTRL_REG4_FS_16G:
         accRange = 1280;
         break;
-    case LIS3DHTR_REG_ACCEL_CTRL_REG4_FS_8G:
+    case LIS3DH_REG_ACCEL_CTRL_REG4_FS_8G:
         accRange = 3968;
         break;
-    case LIS3DHTR_REG_ACCEL_CTRL_REG4_FS_4G:
+    case LIS3DH_REG_ACCEL_CTRL_REG4_FS_4G:
         accRange = 7282;
         break;
-    case LIS3DHTR_REG_ACCEL_CTRL_REG4_FS_2G:
+    case LIS3DH_REG_ACCEL_CTRL_REG4_FS_2G:
         accRange = 16000;
         break;
     default:
@@ -189,39 +164,39 @@ void LIS3DHTR::setFullScaleRange(scale_type_t range)
 }
 
 
-void LIS3DHTR::setOutputDataRate(odr_type_t odr)
+void LIS3DH::setOutputDataRate(odr_type_t odr)
 {
     uint8_t data = 0;
 
-    data = readRegister(LIS3DHTR_REG_ACCEL_CTRL_REG1);
+    data = readRegister(LIS3DH_REG_ACCEL_CTRL_REG1);
 
-    data &= ~LIS3DHTR_REG_ACCEL_CTRL_REG1_AODR_MASK;
+    data &= ~LIS3DH_REG_ACCEL_CTRL_REG1_AODR_MASK;
     data |= odr;
 
-    writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG1, data);
-    DELAY(LIS3DHTR_CONVERSIONDELAY);
+    writeRegister(LIS3DH_REG_ACCEL_CTRL_REG1, data);
+    DELAY(LIS3DH_CONVERSIONDELAY);
 }
 
 
-void LIS3DHTR::getAcceleration(float *x, float *y, float *z)
+void LIS3DH::getAcceleration(float *x, float *y, float *z)
 {
     // Read the Accelerometer
     uint8_t buf[8]={0};
 
     // Read the Data
-    readRegisterRegion(buf,LIS3DHTR_REG_ACCEL_OUT_X_L,6);
+    readRegisterRegion(buf,LIS3DH_REG_ACCEL_OUT_X_L,6);
 
     // Conversion of the result
-    // 16-bit signed result for X-Axis Acceleration Data of LIS3DHTR
+    // 16-bit signed result for X-Axis Acceleration Data of LIS3DH
     *x = (float)((int16_t*)buf)[0] / accRange;
-    // 16-bit signed result for Y-Axis Acceleration Data of LIS3DHTR
+    // 16-bit signed result for Y-Axis Acceleration Data of LIS3DH
     *y = (float)((int16_t*)buf)[1] / accRange;
-    // 16-bit signed result for Z-Axis Acceleration Data of LIS3DHTR
+    // 16-bit signed result for Z-Axis Acceleration Data of LIS3DH
     *z = (float)((int16_t*)buf)[2] / accRange;
 }
 
 
-float LIS3DHTR::getAccelerationX(void)
+float LIS3DH::getAccelerationX(void)
 {
     // Read the Accelerometer
     uint8_t xAccelLo, xAccelHi;
@@ -229,66 +204,66 @@ float LIS3DHTR::getAccelerationX(void)
 
     // Read the Data
     // Reading the Low X-Axis Acceleration Data Register
-    xAccelLo = readRegister(LIS3DHTR_REG_ACCEL_OUT_X_L);
+    xAccelLo = readRegister(LIS3DH_REG_ACCEL_OUT_X_L);
     // Reading the High X-Axis Acceleration Data Register
-    xAccelHi = readRegister(LIS3DHTR_REG_ACCEL_OUT_X_H);
+    xAccelHi = readRegister(LIS3DH_REG_ACCEL_OUT_X_H);
     // Conversion of the result
-    // 16-bit signed result for X-Axis Acceleration Data of LIS3DHTR
+    // 16-bit signed result for X-Axis Acceleration Data of LIS3DH
     x = (int16_t)((xAccelHi << 8) | xAccelLo);
 
     return (float)x / accRange;
 }
 
 
-float LIS3DHTR::getAccelerationY(void)
+float LIS3DH::getAccelerationY(void)
 {
     // Read the Accelerometer
     uint8_t yAccelLo, yAccelHi;
     int16_t y;
 
     // Reading the Low Y-Axis Acceleration Data Register
-    yAccelLo = readRegister(LIS3DHTR_REG_ACCEL_OUT_Y_L);
+    yAccelLo = readRegister(LIS3DH_REG_ACCEL_OUT_Y_L);
     // Reading the High Y-Axis Acceleration Data Register
-    yAccelHi = readRegister(LIS3DHTR_REG_ACCEL_OUT_Y_H);
+    yAccelHi = readRegister(LIS3DH_REG_ACCEL_OUT_Y_H);
     // Conversion of the result
-    // 16-bit signed result for Y-Axis Acceleration Data of LIS3DHTR
+    // 16-bit signed result for Y-Axis Acceleration Data of LIS3DH
     y = (int16_t)((yAccelHi << 8) | yAccelLo);
 
     return (float)y / accRange;
 }
 
 
-float LIS3DHTR::getAccelerationZ(void)
+float LIS3DH::getAccelerationZ(void)
 {
     // Read the Accelerometer
     uint8_t zAccelLo, zAccelHi;
     int16_t z;
 
     // Reading the Low Z-Axis Acceleration Data Register
-    zAccelLo = readRegister(LIS3DHTR_REG_ACCEL_OUT_Z_L);
+    zAccelLo = readRegister(LIS3DH_REG_ACCEL_OUT_Z_L);
     // Reading the High Z-Axis Acceleration Data Register
-    zAccelHi = readRegister(LIS3DHTR_REG_ACCEL_OUT_Z_H);
+    zAccelHi = readRegister(LIS3DH_REG_ACCEL_OUT_Z_H);
     // Conversion of the result
-    // 16-bit signed result for Z-Axis Acceleration Data of LIS3DHTR
+    // 16-bit signed result for Z-Axis Acceleration Data of LIS3DH
     z = (int16_t)((zAccelHi << 8) | zAccelLo);
 
     return (float)z / accRange;
 }
 
 
-void LIS3DHTR::setHighSolution(bool enable)
+void LIS3DH::setHighSolution(bool enable)
 {
     uint8_t data = 0;
-    data = readRegister(LIS3DHTR_REG_ACCEL_CTRL_REG4);
+    data = readRegister(LIS3DH_REG_ACCEL_CTRL_REG4);
    
-    data = enable? data | LIS3DHTR_REG_ACCEL_CTRL_REG4_HS_ENABLE : data & ~LIS3DHTR_REG_ACCEL_CTRL_REG4_HS_ENABLE;
+    data = enable? data | LIS3DH_REG_ACCEL_CTRL_REG4_HS_ENABLE : data & ~LIS3DH_REG_ACCEL_CTRL_REG4_HS_ENABLE;
     
-    writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG4, data);
+    writeRegister(LIS3DH_REG_ACCEL_CTRL_REG4, data);
     return; 
 }
 
 
-uint16_t LIS3DHTR::readbitADC1(void)
+uint16_t LIS3DH::readbitADC1(void)
 {
     uint8_t adc1_l, adc1_h;
     int16_t intTemp;
@@ -302,7 +277,7 @@ uint16_t LIS3DHTR::readbitADC1(void)
     return uintTemp >> 6;
 }
 
-uint16_t LIS3DHTR::readbitADC2(void)
+uint16_t LIS3DH::readbitADC2(void)
 {
     uint8_t adc2_l, adc2_h;
     int16_t intTemp;
@@ -315,7 +290,7 @@ uint16_t LIS3DHTR::readbitADC2(void)
     return uintTemp >> 6;
 }
 
-uint16_t LIS3DHTR::readbitADC3(void)
+uint16_t LIS3DH::readbitADC3(void)
 {
     uint8_t adc3_l, adc3_h;
     int16_t intTemp;
@@ -329,27 +304,20 @@ uint16_t LIS3DHTR::readbitADC3(void)
     return uintTemp >> 6;
 }
 
-void LIS3DHTR::writeRegister(uint8_t reg, uint8_t val)
+void LIS3DH::writeRegister(uint8_t reg, uint8_t val)
 {   
-
-uint8_t write_buf[2] = {reg, val};
-
-i2c_master_write_to_device(I2C_MASTER_NUM, devAddr, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
-
+    uint8_t write_buf[2] = {reg, val};
+    i2c_write(i2c_dev, write_buf, sizeof(write_buf));
 }
 
-void LIS3DHTR::readRegisterRegion(uint8_t *outputPointer, uint8_t reg, uint8_t length)
+void LIS3DH::readRegisterRegion(uint8_t *outputPointer, uint8_t reg, uint8_t length)
 {
-
     reg |= 0x80; //turn auto-increment bit on, bit 7 for I2C
-
-    i2c_master_write_read_device(I2C_MASTER_NUM, devAddr, &reg, 1, outputPointer, length, I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
-
+    i2c_read(i2c_dev, &reg, outputPointer, length);
 }
 
-uint16_t LIS3DHTR::readRegisterInt16(uint8_t reg)
+uint16_t LIS3DH::readRegisterInt16(uint8_t reg)
 {
-
     uint8_t myBuffer[2];
     readRegisterRegion(myBuffer, reg, 2);
     uint16_t output = myBuffer[0] | uint16_t(myBuffer[1] << 8);
@@ -357,41 +325,40 @@ uint16_t LIS3DHTR::readRegisterInt16(uint8_t reg)
     return output;
 }
 
-uint8_t LIS3DHTR::readRegister(uint8_t reg)
+uint8_t LIS3DH::readRegister(uint8_t reg)
 {
     uint8_t data;
-
     readRegisterRegion(&data, reg, 1);
 
     return data;
 }
 
-void LIS3DHTR::click(uint8_t c, uint8_t click_thresh, uint8_t limit, uint8_t latency, uint8_t window)
+void LIS3DH::click(uint8_t c, uint8_t click_thresh, uint8_t limit, uint8_t latency, uint8_t window)
 {
     if (!c)
     {
-        uint8_t r = readRegister(LIS3DHTR_REG_ACCEL_CTRL_REG3);
+        uint8_t r = readRegister(LIS3DH_REG_ACCEL_CTRL_REG3);
         r &= ~(0x80); // turn off I1_CLICK
-        writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG3, r);
-        writeRegister(LIS3DHTR_REG_ACCEL_CLICK_CFG, 0);
+        writeRegister(LIS3DH_REG_ACCEL_CTRL_REG3, r);
+        writeRegister(LIS3DH_REG_ACCEL_CLICK_CFG, 0);
         return;
     }
-    writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG3, 0x80);
-    writeRegister(LIS3DHTR_REG_ACCEL_CTRL_REG5, 0x08);
+    writeRegister(LIS3DH_REG_ACCEL_CTRL_REG3, 0x80);
+    writeRegister(LIS3DH_REG_ACCEL_CTRL_REG5, 0x08);
 
     if (c == 1)
     {
-        writeRegister(LIS3DHTR_REG_ACCEL_CLICK_CFG, 0x15);
+        writeRegister(LIS3DH_REG_ACCEL_CLICK_CFG, 0x15);
     }
     if (c == 2)
     {
-        writeRegister(LIS3DHTR_REG_ACCEL_CLICK_CFG, 0x2A);
+        writeRegister(LIS3DH_REG_ACCEL_CLICK_CFG, 0x2A);
     }
 
-    writeRegister(LIS3DHTR_REG_ACCEL_CLICK_THS, click_thresh);
-    writeRegister(LIS3DHTR_REG_ACCEL_TIME_LIMIT, limit);
-    writeRegister(LIS3DHTR_REG_ACCEL_TIME_LATENCY, latency);
-    writeRegister(LIS3DHTR_REG_ACCEL_TIME_WINDOW, window);
+    writeRegister(LIS3DH_REG_ACCEL_CLICK_THS, click_thresh);
+    writeRegister(LIS3DH_REG_ACCEL_TIME_LIMIT, limit);
+    writeRegister(LIS3DH_REG_ACCEL_TIME_LATENCY, latency);
+    writeRegister(LIS3DH_REG_ACCEL_TIME_WINDOW, window);
 }
 
-LIS3DHTR::operator bool() { return isConnection(); }
+LIS3DH::operator bool() { return isConnection(); }
